@@ -64,7 +64,7 @@ function parseClient(c) {
   const npsPrev=c.nps?.prevGlobal!==null&&c.nps?.prevGlobal!==undefined?num(c.nps.prevGlobal):null;
   const mrr=num(c.mrr);const totalConvos=num(c.convos?.used);const convoPct=num(c.convos?.pctChange);
   const convoLimit=c.convos?.limit?num(c.convos.limit):c.convos?.total?num(c.convos.total):null;
-  const ownerEmail=c.ownerEmail||c.contacts?.ownerEmail||null;
+  const ownerEmail=c.ownerEmail||c.email||c.contacts?.ownerEmail||null;
   return{...c,mrr,mrrPrev:num(c.mrrPrev),npsG,npsPrev,npsComments:c.npsComments||[],
     owners,sAdmins,admins,agents,totalUsers:num(c.totalUsers),
     trend:t.map(num),totalConvos,convoPct,avg4,avgP4,convoLimit,ownerEmail,
@@ -367,19 +367,38 @@ function ChartsSection({client:c}){
         </div>
       )}
       {activeChart==="logins"&&(
-        <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
-          <span className="text-3xl mb-2 block">🔐</span>
-          <p className="text-sm text-gray-400">Sin datos de logins disponibles aún.</p>
-          <p className="text-xs text-gray-300 mt-2">Requiere campo <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">logins</code> en el webhook</p>
-          <p className="text-xs text-gray-300 mt-1">Ej: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{'{"daily":12,"weekly":54,"monthly":210}'}</code></p>
-        </div>
+        c.logins&&(c.logins.daily||c.logins.weekly||c.logins.monthly)?(
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <Block label="Hoy" value={c.logins.daily??'—'} tooltip="Logins en las últimas 24h"/>
+              <Block label="Esta semana" value={c.logins.weekly??'—'} tooltip="Logins en los últimos 7 días"/>
+              <Block label="Este mes" value={c.logins.monthly??'—'} tooltip="Logins en los últimos 30 días"/>
+            </div>
+          </div>
+        ):(
+          <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
+            <span className="text-3xl mb-2 block">🔐</span>
+            <p className="text-sm text-gray-400">Sin datos de logins disponibles aún.</p>
+            <p className="text-xs text-gray-300 mt-2">Requiere campo <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">logins</code> en el webhook</p>
+          </div>
+        )
       )}
       {activeChart==="funciones"&&(
-        <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
-          <span className="text-3xl mb-2 block">⚙️</span>
-          <p className="text-sm text-gray-400">Sin datos de funciones disponibles aún.</p>
-          <p className="text-xs text-gray-300 mt-2">Requiere <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.total</code> y <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.successRate</code></p>
-        </div>
+        c.functions&&c.functions.total>0?(
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <Block label="Total ejecuciones" value={c.functions.total.toLocaleString()} tooltip="Total de ejecuciones de funciones"/>
+              <Block label="Tasa de éxito" value={`${c.functions.successRate??0}%`} extra={c.functions.prevSuccessRate!=null?<Delta value={(c.functions.successRate??0)-(c.functions.prevSuccessRate)} suffix=" pp" size="xs"/>:null} tooltip="Porcentaje de ejecuciones exitosas"/>
+              <Block label="Fallidas" value={c.functions.failed??0} tooltip="Ejecuciones con error"/>
+            </div>
+          </div>
+        ):(
+          <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
+            <span className="text-3xl mb-2 block">⚙️</span>
+            <p className="text-sm text-gray-400">Sin datos de funciones disponibles aún.</p>
+            <p className="text-xs text-gray-300 mt-2">Requiere <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.total</code> y <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.successRate</code></p>
+          </div>
+        )
       )}
     </div>
   );
