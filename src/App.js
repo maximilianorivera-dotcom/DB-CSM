@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, AreaChart, Area } from "recharts";
-import { Users, TrendingUp, AlertTriangle, ArrowLeft, DollarSign, Activity, Shield, MessageSquare, Clock, ChevronRight, ArrowUpRight, ArrowDownRight, Minus, RefreshCw, ExternalLink, Globe } from "lucide-react";
+import { Users, TrendingUp, AlertTriangle, ArrowLeft, DollarSign, Activity, Shield, MessageSquare, Clock, ChevronRight, ArrowUpRight, ArrowDownRight, Minus, RefreshCw, ExternalLink, Globe, Mail } from "lucide-react";
 import './App.css';
 
 const WEBHOOK_URL = process.env.REACT_APP_WEBHOOK_URL || "";
@@ -31,9 +31,10 @@ function parseClient(c) {
   const npsPrev=c.nps?.prevGlobal!==null&&c.nps?.prevGlobal!==undefined?num(c.nps.prevGlobal):null;
   const mrr=num(c.mrr);const totalConvos=num(c.convos?.used);const convoPct=num(c.convos?.pctChange);
   const convoLimit=c.convos?.limit?num(c.convos.limit):c.convos?.total?num(c.convos.total):null;
+  const ownerEmail=c.ownerEmail||c.contacts?.ownerEmail||null;
   return{...c,mrr,mrrPrev:num(c.mrrPrev),npsG,npsPrev,npsComments:c.npsComments||[],
     owners,sAdmins,admins,agents,totalUsers:num(c.totalUsers),
-    trend:t.map(num),totalConvos,convoPct,avg4,avgP4,convoLimit,
+    trend:t.map(num),totalConvos,convoPct,avg4,avgP4,convoLimit,ownerEmail,
     billDate:c.billDate||'N/A',payStatus:c.payStatus||'Al día',
     failedPayments:num(c.failedPayments),daysInVambe:num(c.daysInVambe),
     teamMembers:c.teamMembers||'Sin asignar',csm:c.csm||'Sin asignar',
@@ -56,7 +57,6 @@ function calcHealth(c){
 const riskLevel=h=>h>=70?"low":h>=45?"medium":"high";
 const adoptCat=h=>h>=70?"Power User":h>=45?"Underutilizer":"Critical Support";
 
-// Tooltip wrapper
 const Tip=({text,children})=>(
   <div className="relative group inline-flex items-center w-full">
     {children}
@@ -92,23 +92,21 @@ const KPI=({icon:Icon,label,value,sub,delta,deltaSuffix="",color="text-blue-600"
   </Tip>
 );
 
-const HealthBar=({score,tooltip})=>{
+const HealthBar=({score})=>{
   const c=score>=70?"bg-emerald-500":score>=45?"bg-amber-500":"bg-red-500";
-  const bar=<div className="w-full bg-gray-100 rounded-full h-2"><div className={`h-2 rounded-full ${c} transition-all`} style={{width:`${score}%`}}/></div>;
-  if(!tooltip)return bar;
-  return<Tip text={tooltip}>{bar}</Tip>;
+  return<div className="w-full bg-gray-100 rounded-full h-2"><div className={`h-2 rounded-full ${c} transition-all`} style={{width:`${score}%`}}/></div>;
 };
 
 function AlertsPanel({clients}){
   const alerts=[];
   clients.forEach(c=>{
-    if(c.convoPct<=-60)alerts.push({c,type:"critical",msg:`Convos cayeron ${Math.abs(c.convoPct).toFixed(0)}% (4 sem)`,p:1});
+    if(c.convoPct<=-60)alerts.push({c,type:"critical",msg:`Conversaciones cayeron ${Math.abs(c.convoPct).toFixed(0)}% (4 sem)`,p:1});
     if(c.payStatus==="Atrasado")alerts.push({c,type:"critical",msg:`Pago atrasado (${c.failedPayments} intentos fallidos)`,p:1});
     if(c.totalConvos===0&&c.daysInVambe>30)alerts.push({c,type:"critical",msg:"0 conversaciones en 4 semanas",p:1});
-    if(c.convoPct<=-30&&c.convoPct>-60)alerts.push({c,type:"warning",msg:`Convos bajaron ${Math.abs(c.convoPct).toFixed(0)}%`,p:2});
+    if(c.convoPct<=-30&&c.convoPct>-60)alerts.push({c,type:"warning",msg:`Conversaciones bajaron ${Math.abs(c.convoPct).toFixed(0)}%`,p:2});
     if(c.npsG!==null&&c.npsG<=5)alerts.push({c,type:"warning",msg:`NPS bajo: ${c.npsG}`,p:2});
-    if(c.csm==="Sin asignar"&&c.mrr>=1000)alerts.push({c,type:"warning",msg:`${c.mrr.toLocaleString()} MRR sin CSM asignado`,p:2});
-    if(c.convoPct>=50&&c.totalConvos>500)alerts.push({c,type:"positive",msg:`Convos crecieron ${c.convoPct.toFixed(0)}%`,p:4});
+    if(c.csm==="Sin asignar"&&c.mrr>=1000)alerts.push({c,type:"warning",msg:`$${c.mrr.toLocaleString()} MRR sin CSM asignado`,p:2});
+    if(c.convoPct>=50&&c.totalConvos>500)alerts.push({c,type:"positive",msg:`Conversaciones crecieron ${c.convoPct.toFixed(0)}%`,p:4});
   });
   alerts.sort((a,b)=>a.p-b.p);
   if(!alerts.length)return null;
@@ -121,8 +119,10 @@ function AlertsPanel({clients}){
       </Tip>
       <div className="space-y-2 max-h-56 overflow-y-auto">{alerts.slice(0,12).map((a,i)=>(
         <div key={i} className={`border-l-4 rounded-r-lg px-3 py-2 ${colors[a.type]}`}>
-          <span className="text-xs">{icons[a.type]} </span><span className="text-xs font-semibold text-gray-800">{a.c.name}</span>
-          <span className="text-xs text-gray-500"> · </span><span className="text-xs text-gray-600">{a.msg}</span>
+          <span className="text-xs">{icons[a.type]} </span>
+          <span className="text-xs font-semibold text-gray-800">{a.c.name}</span>
+          <span className="text-xs text-gray-500"> · </span>
+          <span className="text-xs text-gray-600">{a.msg}</span>
           <span className="text-xs text-gray-400"> · ${a.c.mrr.toLocaleString()}/mes</span>
         </div>
       ))}</div>
@@ -130,8 +130,7 @@ function AlertsPanel({clients}){
   );
 }
 
-// Client focus card shown when a client is selected in portfolio view
-function ClientFocusCard({client:c, onDetail}){
+function ClientFocusCard({client:c,onDetail}){
   const h=calcHealth(c);
   const flag=countryFlag(c.segment);
   const convoText=c.convoLimit?`${c.totalConvos.toLocaleString()} / ${c.convoLimit.toLocaleString()}`:`${c.totalConvos.toLocaleString()}`;
@@ -140,66 +139,39 @@ function ClientFocusCard({client:c, onDetail}){
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h2 className="text-xl font-bold text-gray-900">{c.name}</h2>
+            <h2 className="text-xl font-bold text-gray-900">{flag} {c.name}</h2>
             <Badge type={adoptCat(h)} tooltip={adoptCat(h)==="Power User"?"Alta adopción y uso consistente":adoptCat(h)==="Underutilizer"?"Uso por debajo del potencial":"Requiere intervención urgente del CSM"}>{adoptCat(h)}</Badge>
             <Badge type={c.payStatus} tooltip="Estado del pago mensual">{c.payStatus}</Badge>
           </div>
           <p className="text-xs text-gray-500">{c.plan} · CSM: {c.csm}</p>
+          {c.ownerEmail&&<p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Mail size={10}/>{c.ownerEmail}</p>}
         </div>
-        <Tip text="Health Score: puntaje 0–100 que mide la salud general del cliente basado en uso, NPS, equipo, pago y tendencia">
+        <Tip text="Health Score 0–100: combina uso, NPS, equipo, pago y tendencia">
           <div className="text-right cursor-default">
             <div className={`text-4xl font-black ${h>=70?"text-emerald-600":h>=45?"text-amber-500":"text-red-600"}`}>{h}</div>
             <p className="text-xs text-gray-400">Health</p>
           </div>
         </Tip>
       </div>
-
-      {/* Main metrics grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
-        <Tip text="País de origen del cliente">
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">País</p>
-            <p className="text-xl mt-0.5">{flag}</p>
-            <p className="text-xs font-semibold text-gray-700 mt-0.5">{c.segment}</p>
-          </div>
-        </Tip>
-        <Tip text="Monthly Recurring Revenue: ingreso mensual recurrente del cliente">
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">MRR</p>
-            <p className="text-lg font-bold text-gray-900 mt-0.5">${c.mrr.toLocaleString()}</p>
-            <p className="text-xs text-gray-400">/mes</p>
-          </div>
-        </Tip>
-        <Tip text="Total de usuarios activos registrados en la cuenta">
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">Usuarios</p>
-            <p className="text-lg font-bold text-gray-900 mt-0.5">{c.totalUsers}</p>
-            <p className="text-xs text-gray-400">activos</p>
-          </div>
-        </Tip>
-        <Tip text="Días transcurridos desde que el cliente se unió a Vambe">
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">Días en Vambe</p>
-            <p className="text-lg font-bold text-gray-900 mt-0.5">{c.daysInVambe}</p>
-            <p className="text-xs text-gray-400">días</p>
-          </div>
-        </Tip>
-        <Tip text={c.convoLimit?"Conversaciones usadas sobre el límite del plan en las últimas 4 semanas":"Total de conversaciones en las últimas 4 semanas"}>
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">Convos (4 sem)</p>
-            <p className="text-base font-bold text-gray-900 mt-0.5">{convoText}</p>
-            <Delta value={c.convoPct} suffix="%" size="xs"/>
-          </div>
-        </Tip>
-        <Tip text="Net Promoter Score: satisfacción del cliente de 0 a 10">
-          <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
-            <p className="text-xs text-gray-500">NPS</p>
-            <p className={`text-lg font-bold mt-0.5 ${c.npsG===null?"text-gray-300":c.npsG>=8?"text-emerald-600":c.npsG>=6?"text-amber-500":"text-red-600"}`}>{c.npsG!==null?c.npsG:"—"}</p>
-            <p className="text-xs text-gray-400">/10</p>
-          </div>
-        </Tip>
+        {[
+          {l:"País",v:<>{flag}<br/><span className="text-xs font-semibold text-gray-700">{c.segment}</span></>,tip:"País de operación"},
+          {l:"MRR",v:`$${c.mrr.toLocaleString()}`,sub:"/mes",tip:"Monthly Recurring Revenue"},
+          {l:"Usuarios",v:c.totalUsers,sub:"activos",tip:"Usuarios activos en la cuenta"},
+          {l:"Días en Vambe",v:c.daysInVambe,tip:"Días desde la activación de la cuenta"},
+          {l:"Conversaciones",v:convoText,delta:c.convoPct,tip:c.convoLimit?"Usadas / límite del plan (4 sem)":"Total (4 sem)"},
+          {l:"NPS",v:c.npsG!==null?c.npsG:"—",sub:"/10",tip:"Net Promoter Score global"},
+        ].map(m=>(
+          <Tip key={m.l} text={m.tip}>
+            <div className="bg-white/80 rounded-lg p-2.5 text-center cursor-default w-full">
+              <p className="text-xs text-gray-500">{m.l}</p>
+              <p className="text-base font-bold text-gray-900 mt-0.5">{m.v}</p>
+              {m.sub&&<p className="text-xs text-gray-400">{m.sub}</p>}
+              {m.delta!==undefined&&<Delta value={m.delta} suffix="%" size="xs"/>}
+            </div>
+          </Tip>
+        ))}
       </div>
-
       <div className="flex items-center gap-4 mt-4">
         <button onClick={()=>onDetail(c)} className="flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800">Ver 360° completo <ChevronRight size={16}/></button>
         <a href={c.backofficeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"><ExternalLink size={14}/>Backoffice</a>
@@ -211,11 +183,8 @@ function ClientFocusCard({client:c, onDetail}){
 function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
   const[sortBy,setSortBy]=useState("risk");
   const csmClients=useMemo(()=>csm==="Todos"?clients:clients.filter(c=>(c.teamMembers||'').toLowerCase().includes(csm.toLowerCase())),[clients,csm]);
-
-  // When a client is selected, filter everything to that client only
   const selClient=useMemo(()=>csmClients.find(c=>c.id===selId)||null,[csmClients,selId]);
   const p=useMemo(()=>selClient?[selClient]:csmClients,[selClient,csmClients]);
-
   const sorted=useMemo(()=>[...p].sort((a,b)=>{
     if(sortBy==="risk")return calcHealth(a)-calcHealth(b);
     if(sortBy==="mrr")return b.mrr-a.mrr;
@@ -241,13 +210,9 @@ function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Portfolio Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {selClient?`Viendo: ${selClient.name}`:`${p.length} cuentas Corporate · ${csm==="Todos"?"Todos los CSMs":csm}`}
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">{selClient?`Viendo: ${selClient.name}`:`${p.length} cuentas · ${csm==="Todos"?"Todos los CSMs":csm}`}</p>
         </div>
       </div>
-
-      {/* Filters bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <select value={csm} onChange={e=>{setCsm(e.target.value);setSelId(null);}} className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
           <option value="Todos">Todos los CSMs</option>
@@ -265,23 +230,20 @@ function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
         </div>
       </div>
 
-      {/* Selected client focus card */}
       {selClient&&<ClientFocusCard client={selClient} onDetail={onDetail}/>}
 
-      {/* KPIs — reflect only the current view (all or single client) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <KPI icon={Activity} label="Health Promedio" value={`${avgH}/100`} color="text-emerald-600" tooltip="Promedio del Health Score de los clientes visibles. 70+ verde, 45–69 amarillo, <45 rojo"/>
-        <KPI icon={DollarSign} label="MRR Total" value={`$${totalMRR.toLocaleString()}`} sub={`${p.length} cuenta${p.length!==1?"s":""}`} color="text-blue-600" tooltip="Monthly Recurring Revenue total de los clientes visibles"/>
+        <KPI icon={Activity} label="Health Promedio" value={`${avgH}/100`} color="text-emerald-600" tooltip="Promedio del Health Score. 70+ verde, 45–69 amarillo, <45 rojo"/>
+        <KPI icon={DollarSign} label="MRR Total" value={`$${totalMRR.toLocaleString()}`} sub={`${p.length} cuenta${p.length!==1?"s":""}`} color="text-blue-600" tooltip="Monthly Recurring Revenue total"/>
         <KPI icon={AlertTriangle} label="Revenue at Risk" value={`$${rar.toLocaleString()}`} sub={`${atRisk.length} cuenta${atRisk.length!==1?"s":""}`} color="text-red-600" tooltip="MRR de clientes con Health Score menor a 45 (riesgo alto de churn)"/>
         <KPI icon={MessageSquare} label="NPS Promedio" value={avgNPS} sub={`${npsClients.length} respuesta${npsClients.length!==1?"s":""}`} color="text-violet-600" tooltip="Net Promoter Score promedio. 8–10: Promotores, 6–7: Neutros, 0–5: Detractores"/>
         <KPI icon={Users} label="Sin CSM" value={noCSM.length} sub={`$${noCSM.reduce((s,c)=>s+c.mrr,0).toLocaleString()} MRR`} color="text-amber-600" tooltip="Clientes sin Customer Success Manager asignado"/>
       </div>
 
-      {/* Alerts + Adoption matrix — hidden when viewing single client (already in focus card) */}
       {!selClient&&<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2"><AlertsPanel clients={p}/></div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <Tip text="Distribución de clientes según nivel de adopción del producto">
+          <Tip text="Distribución de clientes según nivel de adopción">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Matriz de Adopción</h3>
           </Tip>
           <ResponsiveContainer width="100%" height={150}>
@@ -294,28 +256,26 @@ function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
         </div>
       </div>}
 
-      {/* Alerts for single client */}
       {selClient&&<AlertsPanel clients={p}/>}
 
-      {/* Clients table */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-sm font-semibold text-gray-700">Clientes ({sorted.length})</h3>
           {!selClient&&<select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white">
-            <option value="risk">Mayor riesgo</option><option value="convoDrop">Mayor caída convos</option><option value="mrr">Mayor MRR</option>
+            <option value="risk">Mayor riesgo</option><option value="convoDrop">Mayor caída</option><option value="mrr">Mayor MRR</option>
           </select>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs text-gray-500 border-b border-gray-100">
               <th className="px-4 py-3 font-medium">Cliente</th>
-              <Tip text="Health Score 0–100: combina uso, NPS, multi-threading, tendencia y pago"><th className="px-4 py-3 font-medium cursor-default">Health</th></Tip>
-              <Tip text="Monthly Recurring Revenue"><th className="px-4 py-3 font-medium cursor-default">MRR</th></Tip>
-              <Tip text="Net Promoter Score (0–10)"><th className="px-4 py-3 font-medium cursor-default">NPS</th></Tip>
-              <Tip text="Variación % de conversaciones vs periodo anterior"><th className="px-4 py-3 font-medium cursor-default">Convos Δ</th></Tip>
+              <th className="px-4 py-3 font-medium">Health</th>
+              <th className="px-4 py-3 font-medium">MRR</th>
+              <th className="px-4 py-3 font-medium">NPS</th>
+              <th className="px-4 py-3 font-medium">Convos Δ</th>
               <th className="px-4 py-3 font-medium">Usuarios</th>
               <th className="px-4 py-3 font-medium">Pago</th>
-              <Tip text="Categoría según Health Score: Power User ≥70, Underutilizer 45–69, Critical Support <45"><th className="px-4 py-3 font-medium cursor-default">Categoría</th></Tip>
+              <th className="px-4 py-3 font-medium">Categoría</th>
             </tr></thead>
             <tbody>{sorted.map(c=>{const h=calcHealth(c);return(
               <tr key={c.id} onClick={()=>onDetail(c)} className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors ${c.id===selId?"bg-blue-50/50":""}`}>
@@ -323,12 +283,7 @@ function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
                   <p className="font-semibold text-gray-900 truncate max-w-48">{countryFlag(c.segment)} {c.name}</p>
                   <p className="text-xs text-gray-400 truncate">{c.csm==="Sin asignar"?"⚠ "+c.csm:c.csm} · {c.segment}</p>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-800 w-6">{h}</span>
-                    <div className="w-14"><HealthBar score={h}/></div>
-                  </div>
-                </td>
+                <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="font-bold text-gray-800 w-6">{h}</span><div className="w-14"><HealthBar score={h}/></div></div></td>
                 <td className="px-4 py-3 font-medium">${c.mrr.toLocaleString()}</td>
                 <td className="px-4 py-3"><span className={`font-bold ${c.npsG===null?"text-gray-300":c.npsG>=8?"text-emerald-600":c.npsG>=6?"text-amber-600":"text-red-600"}`}>{c.npsG!==null?c.npsG:"—"}</span></td>
                 <td className="px-4 py-3"><Delta value={c.convoPct} suffix="%" size="xs"/></td>
@@ -344,141 +299,358 @@ function Portfolio({clients,onDetail,csm,setCsm,csmList,selId,setSelId}){
   );
 }
 
-function DeepDive({client:c,onBack}){
-  const[tab,setTab]=useState("resumen");
-  const h=calcHealth(c);const cat=adoptCat(h);
-  const flag=countryFlag(c.segment);
-  const mt=(c.owners>0?1:0)+(c.sAdmins>0?1:0)+(c.admins>0?1:0)+(c.agents>0?1:0);
-  const trendData=c.trend.map((v,i)=>({week:`S${i+1}`,conv:num(v)}));
-  const convoText=c.convoLimit?`${c.totalConvos.toLocaleString()} / ${c.convoLimit.toLocaleString()}`:`${c.totalConvos.toLocaleString()}`;
-  const radarData=[
-    {m:"Convos",v:Math.min(c.totalConvos/5000*100,100)},{m:"NPS",v:c.npsG!==null?c.npsG*10:50},
-    {m:"Multi-thread",v:mt*25},{m:"Usuarios",v:Math.min(c.totalUsers/50*100,100)},
-    {m:"Tendencia",v:Math.min(Math.max(50+c.convoPct,0),100)},{m:"Pago",v:c.payStatus==="Al día"?100:c.payStatus==="Pendiente"?50:0}
+// ─── NPS helpers ────────────────────────────────────────────────────────────
+function filterNPSByPeriod(entries, period) {
+  if(!entries||!entries.length)return{current:[],previous:[]};
+  const now=new Date();
+  let cutCurrent, cutPrev;
+  if(period==='hoy'){
+    cutCurrent=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    cutPrev=new Date(cutCurrent);cutPrev.setDate(cutPrev.getDate()-1);
+  }else if(period==='semana'){
+    cutCurrent=new Date(now);cutCurrent.setDate(now.getDate()-now.getDay());cutCurrent.setHours(0,0,0,0);
+    cutPrev=new Date(cutCurrent);cutPrev.setDate(cutPrev.getDate()-7);
+  }else if(period==='mes'){
+    cutCurrent=new Date(now.getFullYear(),now.getMonth(),1);
+    cutPrev=new Date(now.getFullYear(),now.getMonth()-1,1);
+  }else{
+    cutCurrent=new Date(now.getFullYear(),0,1);
+    cutPrev=new Date(now.getFullYear()-1,0,1);
+  }
+  const current=entries.filter(e=>new Date(e.date)>=cutCurrent);
+  const previous=entries.filter(e=>new Date(e.date)>=cutPrev&&new Date(e.date)<cutCurrent);
+  return{current,previous};
+}
+
+function NPSSection({client:c}){
+  const[npsRole,setNpsRole]=useState("global");
+  const[npsPeriod,setNpsPeriod]=useState("mes");
+
+  const npsByRole=c.nps?.byRole||{};
+  const roleEntries={
+    global:[],
+    owner:npsByRole.owner||[],
+    superAdmin:npsByRole.superAdmin||[],
+    admin:npsByRole.admin||[],
+    agent:npsByRole.agent||[],
+  };
+
+  const npsRoles=[
+    {id:"global",label:"Global"},
+    {id:"owner",label:"Owner"},
+    {id:"superAdmin",label:"Super Admin"},
+    {id:"admin",label:"Admin"},
+    {id:"agent",label:"Agente"},
   ];
-  const dx=h>=70&&(c.npsG===null||c.npsG>=7)?{l:"Estable / Expansión",cl:"text-emerald-700 bg-emerald-50 border-emerald-200",I:TrendingUp,d:"Buena adopción. Oportunidad de upsell o caso de éxito."}
-    :h>=45?{l:"Monitorear",cl:"text-amber-700 bg-amber-50 border-amber-200",I:Activity,d:"Uso moderado. Profundizar adopción y engagement."}
-    :{l:"Riesgo — Acción Inmediata",cl:"text-red-700 bg-red-50 border-red-200",I:AlertTriangle,d:"Baja adopción o señales negativas. Intervención urgente."};
-  const tabs=[{id:"resumen",l:"Resumen"},{id:"nps",l:"NPS"},{id:"uso",l:"Uso & Convos"},{id:"equipo",l:"Equipo"}];
+  const periodLabels={hoy:"hoy",semana:"esta semana",mes:"este mes","año":"este año"};
+
+  const{current:filteredCurrent,previous:filteredPrev}=filterNPSByPeriod(roleEntries[npsRole],npsPeriod);
+  const last10=filteredCurrent.slice(-10).reverse();
+  const avgCurrent=filteredCurrent.length?(filteredCurrent.reduce((s,e)=>s+num(e.score),0)/filteredCurrent.length):null;
+  const avgPrev=filteredPrev.length?(filteredPrev.reduce((s,e)=>s+num(e.score),0)/filteredPrev.length):null;
+  const npsDelta=(avgCurrent!==null&&avgPrev!==null)?avgCurrent-avgPrev:null;
 
   return(
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100"><ArrowLeft size={18} className="text-gray-600"/></button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900">{flag} {c.name}</h1>
-            <Badge type={cat} tooltip={cat==="Power User"?"Alta adopción y uso consistente":cat==="Underutilizer"?"Uso por debajo del potencial":"Requiere intervención urgente del CSM"}>{cat}</Badge>
-          </div>
-          <p className="text-sm text-gray-500">{c.plan} · {c.segment} · CSM: {c.teamMembers}</p>
-        </div>
-        <a href={c.backofficeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-3 py-2"><ExternalLink size={12}/>Backoffice</a>
-        <Tip text="Health Score 0–100: combina conversaciones, NPS, equipo, tendencia y estado de pago">
-          <div className="text-right cursor-default">
-            <div className={`text-3xl font-black ${h>=70?"text-emerald-600":h>=45?"text-amber-500":"text-red-600"}`}>{h}</div>
-            <p className="text-xs text-gray-400">Health</p>
-          </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-5">
+        <Tip text="Net Promoter Score: satisfacción del cliente de 0 a 10. 8–10 Promotor, 6–7 Neutro, 0–5 Detractor">
+          <h3 className="text-sm font-semibold text-gray-700 cursor-default">NPS</h3>
         </Tip>
+        <select value={npsPeriod} onChange={e=>setNpsPeriod(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+          <option value="hoy">Hoy</option>
+          <option value="semana">Esta semana</option>
+          <option value="mes">Este mes</option>
+          <option value="año">Este año</option>
+        </select>
       </div>
 
-      <div className={`rounded-xl border p-4 flex items-start gap-3 ${dx.cl}`}><dx.I size={20} className="mt-0.5 flex-shrink-0"/><div><p className="font-semibold text-sm">{dx.l}</p><p className="text-xs mt-1 opacity-80">{dx.d}</p></div></div>
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">{tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`flex-1 text-xs font-medium py-2 px-3 rounded-md transition-colors ${tab===t.id?"bg-white text-gray-900 shadow-sm":"text-gray-500 hover:text-gray-700"}`}>{t.l}</button>)}</div>
-
-      {tab==="resumen"&&<div className="space-y-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPI icon={DollarSign} label="MRR" value={`$${c.mrr.toLocaleString()}`} sub={`Factura: ${c.billDate}`} color="text-blue-600" tooltip="Monthly Recurring Revenue: ingreso mensual del cliente"/>
-          <KPI icon={Shield} label="Pago" value={c.payStatus} sub={c.failedPayments>0?`${c.failedPayments} intentos fallidos`:c.plan} color={c.payStatus==="Al día"?"text-emerald-600":"text-red-600"} tooltip="Estado del pago mensual del cliente"/>
-          <KPI icon={MessageSquare} label="Convos (4 sem)" value={convoText} delta={c.convoPct} deltaSuffix="%" color="text-cyan-600" tooltip={c.convoLimit?"Conversaciones usadas / límite del plan en las últimas 4 semanas":"Total de conversaciones procesadas en las últimas 4 semanas"}/>
-          <KPI icon={Users} label="Usuarios Totales" value={c.totalUsers} sub={`${c.daysInVambe} días en Vambe`} color="text-violet-600" tooltip="Número de usuarios activos en la cuenta"/>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <Tip text="Visualización multidimensional de la salud del cliente en 6 ejes">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Radar de Salud</h3>
-            </Tip>
-            <ResponsiveContainer width="100%" height={220}><RadarChart data={radarData}><PolarGrid stroke="#e5e7eb"/><PolarAngleAxis dataKey="m" tick={{fontSize:10,fill:"#6b7280"}}/><PolarRadiusAxis angle={30} domain={[0,100]} tick={false}/><Radar dataKey="v" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2}/></RadarChart></ResponsiveContainer>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <Tip text="Evolución de conversaciones semana a semana en las últimas 8 semanas">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Tendencia Conversaciones (8 sem)</h3>
-            </Tip>
-            <ResponsiveContainer width="100%" height={220}><AreaChart data={trendData}><XAxis dataKey="week" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip/><Area type="monotone" dataKey="conv" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2}/></AreaChart></ResponsiveContainer>
-          </div>
-        </div>
-      </div>}
-
-      {tab==="nps"&&<div className="space-y-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <Tip text="Net Promoter Score global de la cuenta (0–10). 8–10: Promotor, 6–7: Neutro, 0–5: Detractor">
-              <h3 className="text-sm font-semibold text-gray-700 cursor-default">NPS Global</h3>
-            </Tip>
-            <div className="text-right">
-              <div className={`text-2xl font-black ${c.npsG===null?"text-gray-300":c.npsG>=8?"text-emerald-600":c.npsG>=6?"text-amber-500":"text-red-600"}`}>{c.npsG!==null?c.npsG:"Sin datos"}</div>
-              {c.npsPrev!==null&&<Delta value={c.npsG-c.npsPrev} suffix=" pts" size="xs"/>}
+      {/* Global big score + role pills */}
+      <div className="flex items-start gap-6 mb-5">
+        <Tip text="NPS global de toda la cuenta">
+          <div className="text-center cursor-default flex-shrink-0">
+            <div className={`text-6xl font-black leading-none ${c.npsG===null?"text-gray-200":c.npsG>=8?"text-emerald-500":c.npsG>=6?"text-amber-500":"text-red-500"}`}>
+              {c.npsG!==null?c.npsG:"—"}
             </div>
+            <p className="text-xs text-gray-400 mt-1">Global</p>
+            {c.npsPrev!==null&&c.npsG!==null&&<Delta value={c.npsG-c.npsPrev} suffix=" pts" size="xs"/>}
           </div>
-          {c.npsG===null?<p className="text-sm text-gray-400 py-4">Este cliente aún no ha respondido la encuesta NPS.</p>
-          :<div className="p-3 bg-gray-50 rounded-lg"><p className="text-sm text-gray-700">Score: {c.npsG}/10</p><p className="text-xs text-gray-500 mt-1">Prev: {c.npsPrev!==null?c.npsPrev:"Primera respuesta"}</p></div>}
-        </div>
-        {c.npsComments.length>0&&<div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Comentarios</h3>
-          <div className="space-y-2">{c.npsComments.map((cm,i)=><div key={i} className="p-3 bg-gray-50 rounded-lg"><p className="text-sm text-gray-700">"{cm}"</p></div>)}</div>
-        </div>}
-      </div>}
-
-      {tab==="uso"&&<div className="space-y-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPI icon={MessageSquare} label="Convos (4 sem)" value={convoText} delta={c.convoPct} deltaSuffix="%" color="text-blue-600" tooltip={c.convoLimit?"Usadas / límite del plan":"Total de conversaciones en las últimas 4 semanas"}/>
-          <KPI icon={Activity} label="Prom Semanal" value={Math.round(c.avg4).toLocaleString()} sub={`Prev: ${Math.round(c.avgP4).toLocaleString()}`} color="text-cyan-600" tooltip="Promedio de conversaciones por semana en las últimas 4 semanas vs las 4 anteriores"/>
-          <KPI icon={Clock} label="Días en Vambe" value={c.daysInVambe} color="text-violet-600" tooltip="Días desde que el cliente activó su cuenta en Vambe"/>
-          <KPI icon={Globe} label="País" value={`${flag} ${c.segment}`} sub={c.clientSize} color="text-gray-600" tooltip="País de operación del cliente"/>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <Tip text="Número de conversaciones procesadas cada semana durante las últimas 8 semanas">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Conversaciones por Semana</h3>
-          </Tip>
-          <ResponsiveContainer width="100%" height={250}><BarChart data={trendData}><XAxis dataKey="week" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip/><Bar dataKey="conv" fill="#6366f1" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer>
-        </div>
-      </div>}
-
-      {tab==="equipo"&&<div className="space-y-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <Tip text="Multi-threading: qué tan distribuido está el uso entre distintos roles. Más roles activos = menor riesgo de dependencia de una sola persona">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Multi-threading Score</h3>
-          </Tip>
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              {r:"Owner",v:c.owners,tip:"Dueños de la cuenta con acceso total"},
-              {r:"Super Admin",v:c.sAdmins,tip:"Administradores con permisos avanzados"},
-              {r:"Admin",v:c.admins,tip:"Administradores estándar"},
-              {r:"Agente",v:c.agents,tip:"Usuarios que operan conversaciones"}
-            ].map(ct=>(
-              <Tip key={ct.r} text={ct.tip}>
-                <div className={`p-3 rounded-lg border text-center cursor-default w-full ${ct.v>0?"bg-blue-50 border-blue-200":"bg-gray-50 border-gray-200"}`}>
-                  <p className="text-lg font-bold text-gray-800">{ct.v}</p><p className="text-xs text-gray-500">{ct.r}</p>
-                </div>
-              </Tip>
+        </Tip>
+        <div className="flex-1">
+          <p className="text-xs text-gray-400 mb-2">Ver por rol de usuario</p>
+          <div className="flex flex-wrap gap-2">
+            {npsRoles.map(r=>(
+              <button key={r.id} onClick={()=>setNpsRole(r.id)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${npsRole===r.id?"bg-blue-600 text-white border-blue-600":"bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>
+                {r.label}
+                {r.id!=="global"&&roleEntries[r.id].length>0&&<span className="ml-1 opacity-60">({roleEntries[r.id].length})</span>}
+              </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-3">{mt}/4 roles activos · {c.totalUsers} usuarios totales. {mt<3?"⚠ Riesgo de concentración.":"✓ Buena cobertura."}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Equipo Vambe</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-500">CSM / Success:</span><span className="font-medium">{c.teamMembers}</span></div>
-            {c.onboarder&&<div className="flex justify-between text-sm"><span className="text-gray-500">Onboarder:</span><span className="font-medium">{c.onboarder}</span></div>}
-            {c.seller&&<div className="flex justify-between text-sm"><span className="text-gray-500">Seller:</span><span className="font-medium">{c.seller}</span></div>}
+      </div>
+
+      {/* Role content */}
+      {npsRole==="global"?(
+        <div>
+          {c.npsG===null?(
+            <p className="text-sm text-gray-400 py-4 text-center">Sin datos de NPS para esta cuenta.</p>
+          ):(
+            <div className="space-y-2">
+              <div className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                <p className="text-sm text-gray-700">Score actual: <span className="font-bold">{c.npsG}/10</span></p>
+                {c.npsPrev!==null&&<div className="text-right"><p className="text-xs text-gray-400">Período anterior: {c.npsPrev}</p></div>}
+              </div>
+              {c.npsComments.length>0&&(
+                <div className="space-y-2 mt-3">
+                  <p className="text-xs font-medium text-gray-500">Comentarios recientes</p>
+                  {c.npsComments.slice(0,5).map((cm,i)=>(
+                    <div key={i} className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-700">"{cm}"</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ):(
+        <div>
+          {roleEntries[npsRole].length===0?(
+            <div className="py-8 text-center border border-dashed border-gray-200 rounded-lg">
+              <p className="text-sm text-gray-400">Sin respuestas de {npsRoles.find(r=>r.id===npsRole)?.label} en {periodLabels[npsPeriod]}.</p>
+              <p className="text-xs text-gray-300 mt-1.5">Requiere campo <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">nps.byRole.{npsRole}</code> en el webhook</p>
+            </div>
+          ):(
+            <div className="space-y-3">
+              {/* Period summary */}
+              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-xs text-gray-400">Promedio {periodLabels[npsPeriod]}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-2xl font-bold ${avgCurrent!==null&&avgCurrent>=8?"text-emerald-600":avgCurrent!==null&&avgCurrent>=6?"text-amber-500":"text-red-600"}`}>
+                      {avgCurrent!==null?avgCurrent.toFixed(1):"—"}
+                    </span>
+                    {npsDelta!==null&&<Delta value={npsDelta} suffix=" pts" size="xs"/>}
+                  </div>
+                </div>
+                <div className="ml-auto text-right">
+                  <p className="text-xs text-gray-400">{filteredCurrent.length} respuesta{filteredCurrent.length!==1?"s":""}</p>
+                  {avgPrev!==null&&<p className="text-xs text-gray-300">Período anterior: {avgPrev.toFixed(1)}</p>}
+                </div>
+              </div>
+              {/* Last 10 entries */}
+              <p className="text-xs font-medium text-gray-500 mt-2">Últimas {Math.min(last10.length,10)} entradas</p>
+              <div className="space-y-2">
+                {last10.map((entry,i)=>(
+                  <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <span className={`text-lg font-black w-7 flex-shrink-0 ${num(entry.score)>=8?"text-emerald-600":num(entry.score)>=6?"text-amber-500":"text-red-500"}`}>{entry.score}</span>
+                    <div className="flex-1 min-w-0">
+                      {entry.userName&&<p className="text-xs font-semibold text-gray-700">{entry.userName}</p>}
+                      {entry.comment&&<p className="text-xs text-gray-500 mt-0.5 italic">"{entry.comment}"</p>}
+                      {entry.date&&<p className="text-xs text-gray-300 mt-1">{new Date(entry.date).toLocaleDateString('es-CL')}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeepDive({client:c,onBack}){
+  const h=calcHealth(c);
+  const cat=adoptCat(h);
+  const flag=countryFlag(c.segment);
+  const trendData=c.trend.map((v,i)=>({week:`S${i+1}`,conv:num(v)}));
+  const convoText=c.convoLimit?`${c.totalConvos.toLocaleString()} / ${c.convoLimit.toLocaleString()}`:`${c.totalConvos.toLocaleString()}`;
+
+  const dx=h>=70&&(c.npsG===null||c.npsG>=7)
+    ?{l:"Estable / Expansión",cl:"text-emerald-700 bg-emerald-50 border-emerald-200",I:TrendingUp,d:"Buena adopción. Oportunidad de upsell o caso de éxito."}
+    :h>=45?{l:"Monitorear",cl:"text-amber-700 bg-amber-50 border-amber-200",I:Activity,d:"Uso moderado. Profundizar adopción y engagement."}
+    :{l:"Riesgo — Acción Inmediata",cl:"text-red-700 bg-red-50 border-red-200",I:AlertTriangle,d:"Baja adopción o señales negativas. Intervención urgente."};
+
+  return(
+    <div className="space-y-4">
+      {/* Compact header */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"><ArrowLeft size={18} className="text-gray-600"/></button>
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <h1 className="text-xl font-bold text-gray-900">{flag} {c.name}</h1>
+          <Badge type={cat} tooltip={cat==="Power User"?"Alta adopción y uso consistente":cat==="Underutilizer"?"Uso por debajo del potencial":"Requiere intervención urgente del CSM"}>{cat}</Badge>
+          <Badge type={c.payStatus} tooltip="Estado del pago mensual">{c.payStatus}</Badge>
+        </div>
+        <Tip text="Health Score 0–100: combina conversaciones, NPS, equipo, tendencia y pago">
+          <div className={`text-2xl font-black cursor-default flex-shrink-0 ${h>=70?"text-emerald-600":h>=45?"text-amber-500":"text-red-600"}`}>{h}<span className="text-sm font-normal text-gray-400 ml-1">hs</span></div>
+        </Tip>
+        <a href={c.backofficeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-3 py-2 flex-shrink-0"><ExternalLink size={12}/>Backoffice</a>
+      </div>
+
+      {/* Status banner */}
+      <div className={`rounded-xl border p-3 flex items-center gap-3 ${dx.cl}`}>
+        <dx.I size={16} className="flex-shrink-0"/>
+        <p className="text-sm font-semibold">{dx.l}</p>
+        <p className="text-xs opacity-75 ml-1">{dx.d}</p>
+      </div>
+
+      {/* 2-column layout: 1/3 sidebar + 2/3 content */}
+      <div className="grid grid-cols-3 gap-4 items-start">
+
+        {/* ── LEFT SIDEBAR 1/3 ── */}
+        <div className="col-span-1 space-y-3">
+
+          {/* Client data */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Datos del Cliente</p>
+            <div className="space-y-3">
+              <Tip text="País de operación del cliente">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">País</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{flag} {c.segment}</p>
+                </div>
+              </Tip>
+              {c.ownerEmail&&<Tip text="Email del dueño principal de la cuenta">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Email Owner</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5 break-all">{c.ownerEmail}</p>
+                </div>
+              </Tip>}
+              <Tip text="Monthly Recurring Revenue: ingreso mensual del cliente">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">MRR</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">${c.mrr.toLocaleString()}<span className="text-xs text-gray-400 font-normal">/mes</span></p>
+                </div>
+              </Tip>
+              <Tip text="Plan contratado y estado del pago">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Plan / Pago</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-sm font-semibold text-gray-800">{c.plan}</p>
+                    <Badge type={c.payStatus}>{c.payStatus}</Badge>
+                  </div>
+                  {c.failedPayments>0&&<p className="text-xs text-red-500 mt-0.5">{c.failedPayments} intentos fallidos</p>}
+                </div>
+              </Tip>
+              <Tip text="Días transcurridos desde que el cliente activó su cuenta en Vambe">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Días en Vambe</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.daysInVambe} <span className="text-xs text-gray-400 font-normal">días</span></p>
+                </div>
+              </Tip>
+              <Tip text="Número de usuarios activos registrados en la cuenta">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Usuarios</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.totalUsers} <span className="text-xs text-gray-400 font-normal">activos</span></p>
+                </div>
+              </Tip>
+              <Tip text={c.convoLimit?"Conversaciones usadas sobre el límite del plan en las últimas 4 semanas":"Total de conversaciones procesadas en las últimas 4 semanas"}>
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Conversaciones (4 sem)</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{convoText}</p>
+                  <Delta value={c.convoPct} suffix="%" size="xs"/>
+                </div>
+              </Tip>
+            </div>
+          </div>
+
+          {/* Equipo Vambe */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Equipo Vambe</p>
+            <div className="space-y-3">
+              <Tip text="Customer Success Manager responsable de la cuenta">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Success / CSM</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.teamMembers}</p>
+                </div>
+              </Tip>
+              {c.onboarder&&<Tip text="Responsable del proceso de onboarding del cliente">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Onboarder</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.onboarder}</p>
+                </div>
+              </Tip>}
+              {c.seller&&<Tip text="Ejecutivo de ventas que cerró la cuenta">
+                <div className="cursor-default w-full">
+                  <p className="text-xs text-gray-400">Seller</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.seller}</p>
+                </div>
+              </Tip>}
+            </div>
+          </div>
+
+          {/* Contacto cliente */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Contacto Cliente</p>
+            <div className="space-y-3">
+              {c.email&&<div>
+                <p className="text-xs text-gray-400">Email</p>
+                <p className="text-sm font-semibold text-gray-800 mt-0.5 break-all">{c.email}</p>
+              </div>}
+              {c.phone&&<div>
+                <p className="text-xs text-gray-400">Teléfono</p>
+                <p className="text-sm font-semibold text-gray-800 mt-0.5">{c.phone}</p>
+              </div>}
+              {!c.email&&!c.phone&&<p className="text-xs text-gray-400">Sin datos de contacto</p>}
+            </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Contacto del Cliente</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Email:</span><span className="font-medium">{c.email}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Teléfono:</span><span className="font-medium">{c.phone}</span></div>
+
+        {/* ── RIGHT CONTENT 2/3 ── */}
+        <div className="col-span-2 space-y-4">
+
+          {/* NPS section */}
+          <NPSSection client={c}/>
+
+          {/* Logins placeholder */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <Tip text="Cantidad de veces que los usuarios han iniciado sesión en la plataforma">
+                <h3 className="text-sm font-semibold text-gray-700 cursor-default">Logins</h3>
+              </Tip>
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">Pendiente de datos</span>
+            </div>
+            <div className="py-8 text-center border-2 border-dashed border-gray-100 rounded-xl">
+              <p className="text-sm text-gray-400">Sin datos de logins disponibles aún.</p>
+              <p className="text-xs text-gray-300 mt-1.5">Requiere campo <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">logins</code> en el webhook</p>
+              <p className="text-xs text-gray-300 mt-0.5">Ejemplo: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{'{"daily": 12, "weekly": 54, "monthly": 210}'}</code></p>
+            </div>
           </div>
+
+          {/* Functions success rate placeholder */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <Tip text="Total de funciones ejecutadas por el bot y porcentaje de ejecuciones exitosas">
+                <h3 className="text-sm font-semibold text-gray-700 cursor-default">Tasa de Éxito de Funciones</h3>
+              </Tip>
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">Pendiente de datos</span>
+            </div>
+            <div className="py-8 text-center border-2 border-dashed border-gray-100 rounded-xl">
+              <p className="text-sm text-gray-400">Sin datos de funciones disponibles aún.</p>
+              <p className="text-xs text-gray-300 mt-1.5">Requiere campos <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.total</code> y <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">functions.successRate</code></p>
+              <p className="text-xs text-gray-300 mt-0.5">Ejemplo: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{'{"total": 340, "successRate": 94.2}'}</code></p>
+            </div>
+          </div>
+
+          {/* Trend chart */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <Tip text="Evolución del número de conversaciones semana a semana en las últimas 8 semanas">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 cursor-default">Tendencia de Conversaciones (8 semanas)</h3>
+            </Tip>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={trendData}>
+                <XAxis dataKey="week" tick={{fontSize:11}}/>
+                <YAxis tick={{fontSize:11}}/>
+                <Tooltip/>
+                <Area type="monotone" dataKey="conv" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
         </div>
-      </div>}
+      </div>
     </div>
   );
 }
@@ -519,9 +691,10 @@ function App(){
 
   return(
     <div className="min-h-screen bg-gray-50 p-4 lg:p-6" style={{fontFamily:"system-ui,-apple-system,sans-serif"}}>
-      <div className="max-w-6xl mx-auto">
-        {detail?<DeepDive client={detail} onBack={()=>setDetail(null)}/>
-        :<Portfolio clients={clients} onDetail={c=>{setDetail(c);setSelId(c.id);}} csm={csm} setCsm={setCsm} csmList={csmList} selId={selId} setSelId={setSelId}/>}
+      <div className={`mx-auto ${detail?"max-w-7xl":"max-w-6xl"}`}>
+        {detail
+          ?<DeepDive client={detail} onBack={()=>setDetail(null)}/>
+          :<Portfolio clients={clients} onDetail={c=>{setDetail(c);setSelId(c.id);}} csm={csm} setCsm={setCsm} csmList={csmList} selId={selId} setSelId={setSelId}/>}
         <div className="flex items-center justify-center gap-4 mt-6">
           <p className="text-xs text-gray-300">Generado: {data?.summary?.generatedAt?new Date(data.summary.generatedAt).toLocaleString('es-CL'):'—'}</p>
           <button onClick={()=>{setDetail(null);fetchData();}} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"><RefreshCw size={10}/>Refrescar</button>
