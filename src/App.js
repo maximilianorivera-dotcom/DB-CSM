@@ -367,19 +367,21 @@ function ChartsSection({client:c}){
         </div>
       )}
       {activeChart==="logins"&&(
-        c.logins&&(c.logins.daily||c.logins.weekly||c.logins.monthly)?(
+        c.logins&&c.logins.activeUsers>0?(
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <Block label="Hoy" value={c.logins.daily??'—'} tooltip="Logins en las últimas 24h"/>
-              <Block label="Esta semana" value={c.logins.weekly??'—'} tooltip="Logins en los últimos 7 días"/>
-              <Block label="Este mes" value={c.logins.monthly??'—'} tooltip="Logins en los últimos 30 días"/>
+            <div className="grid grid-cols-2 gap-3">
+              <Block label="Usuarios activos (30d)" value={c.logins.activeUsers} tooltip="Usuarios que estuvieron en modo 'attended' en los últimos 30 días"/>
+              <Block label="Sesiones totales" value={c.logins.totalSessions.toLocaleString()} tooltip="Cantidad de veces que un agente pasó a modo attended"/>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Block label="Tiempo conectado" value={`${Math.round(c.logins.totalMinutos).toLocaleString()} min`} sub={`≈ ${Math.round(c.logins.totalMinutos/60)} horas`} tooltip="Minutos totales en modo attended en los últimos 30 días"/>
+              <Block label="Promedio por sesión" value={`${c.logins.avgMinSesion} min`} tooltip="Duración promedio de cada sesión en modo attended"/>
             </div>
           </div>
         ):(
           <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
             <span className="text-3xl mb-2 block">🔐</span>
-            <p className="text-sm text-gray-400">Sin datos de logins disponibles aún.</p>
-            <p className="text-xs text-gray-300 mt-2">Requiere campo <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">logins</code> en el webhook</p>
+            <p className="text-sm text-gray-400">Sin datos de actividad disponibles.</p>
           </div>
         )
       )}
