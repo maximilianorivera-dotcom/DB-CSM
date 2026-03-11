@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, AreaChart, Area } from "recharts";
-import { Users, TrendingUp, AlertTriangle, ArrowLeft, DollarSign, Activity, Shield, MessageSquare, Clock, ChevronRight, ArrowUpRight, ArrowDownRight, Minus, RefreshCw, ExternalLink, Globe, Mail } from "lucide-react";
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
+import { Users, TrendingUp, AlertTriangle, ArrowLeft, DollarSign, Activity, MessageSquare, ChevronRight, ArrowUpRight, ArrowDownRight, Minus, RefreshCw, ExternalLink, Mail } from "lucide-react";
 import './App.css';
 
 const WEBHOOK_URL = process.env.REACT_APP_WEBHOOK_URL || "";
