@@ -198,7 +198,7 @@ function AlertsPanel({clients}){
     if(c.payStatus==="Atrasado")alerts.push({c,type:"critical",msg:`Pago atrasado (${c.failedPayments} intentos fallidos)`,p:1});
     if(c.totalConvos===0&&c.daysInVambe>30)alerts.push({c,type:"critical",msg:"0 conversaciones en 4 semanas",p:1});
     if(c.convoPct<=-30&&c.convoPct>-60)alerts.push({c,type:"warning",msg:`Conversaciones bajaron ${Math.abs(c.convoPct).toFixed(0)}%`,p:2});
-    if(c.npsG!==null&&c.npsG<0)alerts.push({c,type:"warning",msg:`NPS negativo: ${c.npsG}%`,p:2});
+    if(c.npsG!==null&&c.npsG<0)alerts.push({c,type:"warning",msg:`NPS negativo: ${c.npsG}`,p:2});
     if(c.csm==="Sin asignar"&&c.mrr>=1000)alerts.push({c,type:"warning",msg:`$${c.mrr.toLocaleString()} MRR sin CSM asignado`,p:2});
     if(c.convoPct>=50&&c.totalConvos>500)alerts.push({c,type:"positive",msg:`Conversaciones crecieron ${c.convoPct.toFixed(0)}%`,p:4});
   });
@@ -304,7 +304,7 @@ function NPSSection({client:c}){
                   <span className="text-xs text-gray-300">{rd.current.length} resp.</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className={`text-xl font-bold ${npsCol(rd.nps)}`}>{rd.nps!==null?`${rd.nps}%`:'—'}</span>
+                  <span className={`text-xl font-bold ${npsCol(rd.nps)}`}>{rd.nps!==null?rd.nps:'—'}</span>
                   {rd.nps!==null&&rd.npsPrev!==null&&<Delta value={rd.nps-rd.npsPrev} suffix=" pts" size="xs"/>}
                 </div>
               </button>
@@ -318,7 +318,7 @@ function NPSSection({client:c}){
             <div className="space-y-3">
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 text-center">
                 <p className="text-xs text-gray-400 mb-1">NPS período</p>
-                <span className={`text-5xl font-black ${npsCol(gNPS)}`}>{gNPS!==null?`${gNPS}%`:'—'}</span>
+                <span className={`text-5xl font-black ${npsCol(gNPS)}`}>{gNPS!==null?gNPS:'—'}</span>
                 <p className="text-xs text-gray-400 mt-1">{gCurr.length} respuesta{gCurr.length!==1?'s':''}</p>
                 {gNPS!==null&&gNPSPrev!==null&&<div className="mt-1 flex justify-center"><Delta value={gNPS-gNPSPrev} suffix=" pts" size="xs"/></div>}
               </div>
@@ -352,7 +352,7 @@ function NPSSection({client:c}){
                   <span className="text-xs text-gray-400">{selData.current.length} resp.</span>
                   {selData.nps!==null&&(
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-xl font-black ${npsCol(selData.nps)}`}>{selData.nps}%</span>
+                      <span className={`text-xl font-black ${npsCol(selData.nps)}`}>{selData.nps}</span>
                       {selData.npsPrev!==null&&<Delta value={selData.nps-selData.npsPrev} suffix=" pts" size="xs"/>}
                     </div>
                   )}
@@ -561,7 +561,6 @@ function DeepDive({client:c}){
         <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">Cliente</p>
           {c.ownerEmail&&<Block label="Email Owner" value={c.ownerEmail} tooltip="Email del dueño principal de la cuenta"/>}
-          {(c.industry||c.vertical)&&<Block label="Industria / Vertical" value={[c.industry,c.vertical].filter(Boolean).join(' · ')} tooltip="Industria y vertical del cliente"/>}
           <Block label="MRR" value={`$${c.mrr.toLocaleString()}`} sub={`${c.plan} · Fact: ${c.billDate}`} tooltip="Monthly Recurring Revenue mensual"/>
           {c.failedPayments>0&&<Block label="Pagos fallidos" value={`${c.failedPayments} intentos`} tooltip="Intentos de cobro fallidos en el último período"/>}
           {/* Usuarios + Días side by side */}
@@ -574,6 +573,7 @@ function DeepDive({client:c}){
             {c.email&&<Block label="Email contacto" value={c.email}/>}
             {c.phone&&<Block label="Teléfono" value={c.phone}/>}
           </>}
+          {c.npsG!==null&&<Block label="NPS Global" value={`${c.npsG}%`} tooltip="% Promotores (9-10) − % Detractores (0-6). Escala −100 a +100"/>}
         </div>
 
         {/* Equipo Vambe */}
@@ -628,7 +628,7 @@ function Portfolio({clients,onDetail}){
         <KPI icon={Activity} label="Health Promedio" value={`${avgH}/100`} color="text-emerald-600" tooltip="Promedio del Health Score. 70+ verde, 45–69 amarillo, <45 rojo"/>
         <KPI icon={DollarSign} label="MRR Total" value={`$${totalMRR.toLocaleString()}`} sub={`${p.length} cuentas`} color="text-blue-600" tooltip="Monthly Recurring Revenue total del portfolio"/>
         <KPI icon={AlertTriangle} label="Revenue at Risk" value={`$${rar.toLocaleString()}`} sub={`${atRisk.length} cuentas`} color="text-red-600" tooltip="MRR de clientes con Health Score menor a 45"/>
-        <KPI icon={MessageSquare} label="NPS Promedio" value={avgNPS !== "—" ? `${avgNPS}%` : "—"} sub={`${npsClients.length} respuestas`} color="text-violet-600" tooltip="Net Promoter Score promedio del portfolio"/>
+        <KPI icon={MessageSquare} label="NPS Promedio" value={avgNPS} sub={`${npsClients.length} respuestas`} color="text-violet-600" tooltip="Net Promoter Score promedio del portfolio"/>
         <KPI icon={Users} label="Sin CSM" value={noCSM.length} sub={`$${noCSM.reduce((s,c)=>s+c.mrr,0).toLocaleString()} MRR`} color="text-amber-600" tooltip="Cuentas sin CSM asignado"/>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -673,7 +673,7 @@ function Portfolio({clients,onDetail}){
                 </td>
                 <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="font-bold text-gray-800 w-6">{h}</span><div className="w-14"><HealthBar score={h}/></div></div></td>
                 <td className="px-4 py-3 font-medium">${c.mrr.toLocaleString()}</td>
-                <td className="px-4 py-3"><span className={`font-bold ${c.npsG===null?"text-gray-300":c.npsG>=50?"text-emerald-600":c.npsG>=0?"text-amber-600":"text-red-600"}`}>{c.npsG!==null?`${c.npsG}%`:"—"}</span></td>
+                <td className="px-4 py-3"><span className={`font-bold ${c.npsG===null?"text-gray-300":c.npsG>=50?"text-emerald-600":c.npsG>=0?"text-amber-600":"text-red-600"}`}>{c.npsG!==null?\${c.npsG}%`:"—"}`</span></td>
                 <td className="px-4 py-3"><Delta value={c.convoPct} suffix="%" size="xs"/></td>
                 <td className="px-4 py-3 text-gray-600">{c.totalUsers}</td>
                 <td className="px-4 py-3"><Badge type={c.payStatus}>{c.payStatus}</Badge></td>
